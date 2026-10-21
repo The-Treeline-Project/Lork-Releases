@@ -234,12 +234,17 @@ In your Dragonite config:
 enable = true
 remote_auth_url = "http://lork:5090/api/v1/login-code"
 token_refresh_only = true
-token_init_start_delay_minutes = 0
+#token_init_start_delay_minutes = 1
+#token_init_interval_seconds = 30
+#token_init_concurrency = 5
 ```
 
-- `enable = true` is required for this to function.
-- `token_refresh_only = true` is strongly recommended.
-- `token_init_start_delay_minutes` sets how many minutes Dragonite waits before it starts getting tokens. Raise it to delay the start, lower it to start sooner.
+- `enable = true` is required for this to function. 
+- `token_refresh_only = true` is strongly recommended. It means you only have to obtain the `refresh_token` once intially and Dragonite keeps it alive itself, this saves a lot of trouble and means you don't nearly have to use Lork as often.
+- `token_init_start_delay_minutes` sets how many minutes Dragonite waits before it starts getting tokens. Raise it to delay the start, 
+lower it to start sooner. I recommend to set this to 0/1 if you're debugging. You should leave it to the Dragonite default if not. 
+- `token_init_interval_seconds` is the amount of seconds between each authentication request Dragonite sends per thread.
+- `token_init_concurrency` is the amount of threads Dragonite spawns that send an auth request every `token_init_interval_seconds`. The example config I included at the top of this documentation part sends (5 * (60/30 = 2)) = 10 requests per minute.
 
 All of these settings belong in the `[auth.ptc]` section. Leave the rest of your Dragonite config at its defaults.
 
