@@ -230,9 +230,18 @@ for your machine is selected automatically.
 In your Dragonite config:
 
 ```toml
-[general]
+[auth.ptc]
+enable = true
 remote_auth_url = "http://lork:5090/api/v1/login-code"
+token_refresh_only = true
+token_init_start_delay_minutes = 0
 ```
+
+- `enable = true` is required for this to function.
+- `token_refresh_only = true` is strongly recommended.
+- `token_init_start_delay_minutes` sets how many minutes Dragonite waits before it starts getting tokens. Raise it to delay the start, lower it to start sooner.
+
+All of these settings belong in the `[auth.ptc]` section. Leave the rest of your Dragonite config at its defaults.
 
 Other tools should have a setting like this too.
 
