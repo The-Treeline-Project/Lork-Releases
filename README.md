@@ -174,8 +174,23 @@ SOCKS. Aggregate relay traffic is reported under the `relay` key of
 | POST | `/api/v1/cion` | Get reCAPTCHA tokens |
 | GET | `/api/v1/health` | Health check |
 | GET | `/api/v1/proxy-stats` | View proxy statistics |
+| GET | `/metrics` | Prometheus metrics (requires a native metrics release) |
 
 OpenAPI docs are available at `/schema/`.
+
+## Monitoring with Grafana
+
+The [monitoring guide](monitoring/README.md) includes a Docker Compose setup for
+Prometheus and Grafana, scrape configuration, alert rules and two example dashboards:
+
+- [Overview](monitoring/grafana/dashboards/lork-overview.json): requests, auth,
+  Cion, browser capacity and proxies.
+- [Browsers and memory](monitoring/grafana/dashboards/lork-browser-memory.json):
+  Chrome processes, RAM, CPU, cleanup failures and OOM events.
+
+Use a Lork image that serves `GET /metrics`; older images returning 404 need a
+compatible release. Thanks to **unseenmagik** for the monitoring work proposed in
+[PR #2](https://github.com/The-Treeline-Project/Lork-Releases/pull/2).
 
 ## Direct Login Call
 

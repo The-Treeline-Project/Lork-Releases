@@ -1,0 +1,216 @@
+rule_files:
+- ../alerts.yml
+evaluation_interval: 1m
+tests:
+- name: Down and missing application metrics stay per instance
+  interval: 1m
+  input_series:
+  - series: up{job="lork",instance="a"}
+    values: 0+0x30
+  - series: up{job="lork",instance="b"}
+    values: 1+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LorkDown
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: a
+        severity: critical
+      exp_annotations:
+        summary: Lork a cannot be scraped
+  - eval_time: 20m
+    alertname: LorkMetricsMissing
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: b
+        severity: warning
+      exp_annotations:
+        summary: Lork b is missing application metrics
+- name: All failures alert even without a SUCCESS series; healthy second instance
+    does not mask it
+  interval: 1m
+  input_series:
+  - series: lork_auth_results_total{job="lork",instance="a",status="ERROR"}
+    values: 0+10x40
+  - series: lork_auth_results_total{job="lork",instance="b",status="SUCCESS"}
+    values: 0+100x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LorkAuthSuccessRateLow
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: a
+        severity: warning
+      exp_annotations:
+        summary: Lork a succeeds on fewer than half of completed auths
+  - eval_time: 20m
+    alertname: LorkAuthErrorRateHigh
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: a
+        severity: warning
+      exp_annotations:
+        summary: Lork a has errors/timeouts in over 20% of completed auths
+- name: No traffic and small workloads do not trigger rate alerts
+  interval: 1m
+  input_series:
+  - series: lork_auth_results_total{job="lork",instance="a",status="ERROR"}
+    values: 0+0x40
+  - series: lork_auth_results_total{job="lork",instance="b",status="ERROR"}
+    values: 0+1x40
+  - series: lork_cion_results_total{job="lork",instance="a",status="ERROR"}
+    values: 0+0x40
+  - series: lork_cion_results_total{job="lork",instance="b",status="EMPTY"}
+    values: 0+0.1x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LorkAuthSuccessRateLow
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: LorkAuthErrorRateHigh
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: LorkCionErrorRateHigh
+    exp_alerts: []
+- name: Queueable leased proxy avoids false exhausted alert
+  interval: 1m
+  input_series:
+  - series: lork_proxies_available{job="lork",instance="a"}
+    values: 0+0x30
+  - series: lork_proxies_queueable_in_flight{job="lork",instance="a"}
+    values: 1+0x30
+  - series: lork_proxies_available{job="lork",instance="b"}
+    values: 0+0x30
+  - series: lork_proxies_queueable_in_flight{job="lork",instance="b"}
+    values: 0+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LorkNoAvailableProxies
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: b
+        severity: warning
+      exp_annotations:
+        summary: Lork b has no available or queueable proxy routes
+- name: Cleanup fence aggregated across roles
+  interval: 1m
+  input_series:
+  - series: lork_browser_cleanup_failures{job="lork",instance="a",role="auth"}
+    values: 0+0x30
+  - series: lork_browser_cleanup_failures{job="lork",instance="a",role="cion"}
+    values: 1+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LorkBrowserCleanupFailed
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: a
+        severity: critical
+      exp_annotations:
+        summary: Lork a has a browser fenced after uncertain cleanup
+- name: Memory ratio requires finite matching limit
+  interval: 1m
+  input_series:
+  - series: lork_container_memory_current_bytes{job="lork",instance="a"}
+    values: 900+0x30
+  - series: lork_container_memory_limit_bytes{job="lork",instance="a"}
+    values: 1000+0x30
+  - series: lork_container_memory_current_bytes{job="lork",instance="b"}
+    values: 999999+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LorkMemoryHigh
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: a
+        severity: warning
+      exp_annotations:
+        summary: Lork a is above 85% of its container memory limit
+- name: Cion errors alert but BUSY and cancellations are not failure ratio inputs
+  interval: 1m
+  input_series:
+  - series: lork_cion_results_total{job="lork",instance="a",status="EMPTY"}
+    values: 0+10x30
+  - series: lork_cion_results_total{job="lork",instance="b",status="BUSY"}
+    values: 0+100x30
+  - series: lork_cion_results_total{job="lork",instance="b",status="CANCELLED"}
+    values: 0+100x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LorkCionErrorRateHigh
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: a
+        severity: warning
+      exp_annotations:
+        summary: Lork a has errors/empty results in over 20% of Cion attempts
+- name: Kernel OOM kill and unreaped Chrome are separate signals
+  interval: 1m
+  input_series:
+  - series: lork_container_memory_events_total{job="lork",instance="a",event="oom_kill"}
+    values: 0+0x3 1+0x12
+  - series: lork_chrome_processes{job="lork",instance="b",state="zombie"}
+    values: 1+0x15
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: LorkContainerOOM
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: a
+        severity: critical
+        event: oom_kill
+      exp_annotations:
+        summary: The kernel killed a process for memory pressure in Lork a
+  - eval_time: 6m
+    alertname: LorkChromeZombies
+    exp_alerts:
+    - exp_labels:
+        job: lork
+        instance: b
+        severity: warning
+        state: zombie
+      exp_annotations:
+        summary: Lork b has unreaped Chrome processes
+- name: Healthy and idle deployment remains quiet
+  interval: 1m
+  input_series:
+  - series: up{job="lork",instance="a"}
+    values: 1+0x30
+  - series: lork_health_status{job="lork",instance="a"}
+    values: 1+0x30
+  - series: lork_proxies_available{job="lork",instance="a"}
+    values: 1+0x30
+  - series: lork_proxies_queueable_in_flight{job="lork",instance="a"}
+    values: 0+0x30
+  - series: lork_browser_cleanup_failures{job="lork",instance="a",role="auth"}
+    values: 0+0x30
+  - series: lork_chrome_processes{job="lork",instance="a",state="zombie"}
+    values: 0+0x30
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: LorkDown
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: LorkMetricsMissing
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: LorkDegraded
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: LorkNoAvailableProxies
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: LorkBrowserCleanupFailed
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: LorkChromeZombies
+    exp_alerts: []

@@ -1,0 +1,91 @@
+groups:
+  - name: lork
+    rules:
+      - alert: LorkDown
+        expr: up{job="lork"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} cannot be scraped'
+
+      - alert: LorkMetricsMissing
+        expr: up{job="lork"} == 1 unless on (job, instance) lork_health_status{job="lork"}
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} is missing application metrics'
+
+      - alert: LorkDegraded
+        expr: lork_health_status == 0
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} reports degraded health'
+
+      - alert: LorkNoAvailableProxies
+        expr: lork_proxies_available + lork_proxies_queueable_in_flight == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} has no available or queueable proxy routes'
+
+      - alert: LorkBrowserCleanupFailed
+        expr: sum by (job, instance) (lork_browser_cleanup_failures) > 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} has a browser fenced after uncertain cleanup'
+
+      - alert: LorkAuthErrorRateHigh
+        expr: |
+          sum by (job, instance) (increase(lork_auth_results_total{status=~"ERROR|TIMEOUT"}[10m]))
+            / clamp_min(sum by (job, instance) (increase(lork_auth_results_total{status!="CANCELLED"}[10m])), 1) > 0.2
+          and on (job, instance)
+            sum by (job, instance) (increase(lork_auth_results_total{status!="CANCELLED"}[10m])) >= 20
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} has errors/timeouts in over 20% of completed auths'
+
+      - alert: LorkAuthSuccessRateLow
+        expr: |
+          (sum by (job, instance) (increase(lork_auth_results_total{status="SUCCESS"}[15m]))
+            or on (job, instance) (0 * sum by (job, instance) (increase(lork_auth_results_total{status!="CANCELLED"}[15m]))))
+            / clamp_min(sum by (job, instance) (increase(lork_auth_results_total{status!="CANCELLED"}[15m])), 1) < 0.5
+          and on (job, instance)
+            sum by (job, instance) (increase(lork_auth_results_total{status!="CANCELLED"}[15m])) >= 20
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} succeeds on fewer than half of completed auths'
+
+      - alert: LorkCionErrorRateHigh
+        expr: |
+          sum by (job, instance) (increase(lork_cion_results_total{status=~"ERROR|EMPTY"}[10m]))
+            / clamp_min(sum by (job, instance) (increase(lork_cion_results_total{status=~"SUCCESS|ERROR|EMPTY"}[10m])), 1) > 0.2
+          and on (job, instance)
+            sum by (job, instance) (increase(lork_cion_results_total{status=~"SUCCESS|ERROR|EMPTY"}[10m])) >= 10
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} has errors/empty results in over 20% of Cion attempts'
+
+      - alert: LorkMemoryHigh
+        expr: lork_container_memory_current_bytes / lork_container_memory_limit_bytes > 0.85
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} is above 85% of its container memory limit'
+
+      - alert: LorkContainerOOM
+        expr: increase(lork_container_memory_events_total{event="oom_kill"}[10m]) > 0
+        labels: {severity: critical}
+        annotations:
+          summary: 'The kernel killed a process for memory pressure in Lork {{ $labels.instance }}'
+
+      - alert: LorkChromeZombies
+        expr: lork_chrome_processes{state="zombie"} > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Lork {{ $labels.instance }} has unreaped Chrome processes'
