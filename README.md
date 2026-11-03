@@ -165,6 +165,9 @@ with no scheme is treated as HTTP; use the `socks5://` / `socks5h://` prefix for
 SOCKS. Aggregate relay traffic is reported under the `relay` key of
 `GET /api/v1/proxy-stats`.
 
+For affected releases that group distinct credentials on a shared gateway into
+one proxy, see the optional [credential-specific proxy identity workaround](workarounds/proxy-identity/README.md).
+
 ## API Endpoints
 
 | Method | Path | Description |
