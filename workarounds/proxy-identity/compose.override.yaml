@@ -1,0 +1,6 @@
+services:
+  lork:
+    image: lork-proxy-identity:local
+    build:
+      context: ./workarounds/proxy-identity
+    pull_policy: never
